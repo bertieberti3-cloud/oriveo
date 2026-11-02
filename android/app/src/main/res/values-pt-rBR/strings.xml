@@ -219,6 +219,7 @@
     <!-- Attachments -->
     <string name="attach">Anexar</string>
     <string name="photo_library">Biblioteca de fotos</string>
+    <string name="composer_paste_image">Colar imagem</string>
     <string name="take_photo">Tirar foto</string>
     <string name="choose_file">Escolher arquivo</string>
     <string name="attachment_conflict_title">Anexo não suportado</string>

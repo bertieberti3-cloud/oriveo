@@ -288,6 +288,7 @@
     <string name="technical_details">Teknik Detaylar</string>
     <string name="attach">Ekle</string>
     <string name="photo_library">Fotoğraf Kitaplığı</string>
+    <string name="composer_paste_image">Görseli yapıştır</string>
     <string name="take_photo">Fotoğraf Çek</string>
     <string name="choose_file">Dosya Seç</string>
     <string name="attachment_conflict_title">Ek Desteklenmiyor</string>

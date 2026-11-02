@@ -219,6 +219,7 @@
     <!-- Attachments -->
     <string name="attach">Adjuntar</string>
     <string name="photo_library">Biblioteca de fotos</string>
+    <string name="composer_paste_image">Pegar imagen</string>
     <string name="take_photo">Tomar foto</string>
     <string name="choose_file">Elegir archivo</string>
     <string name="attachment_conflict_title">Adjunto no compatible</string>

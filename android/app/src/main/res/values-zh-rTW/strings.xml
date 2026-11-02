@@ -460,6 +460,7 @@
     <!-- Attachments -->
     <string name="attach">附加</string>
     <string name="photo_library">相簿</string>
+    <string name="composer_paste_image">貼上圖片</string>
     <string name="take_photo">拍照</string>
     <string name="choose_file">選擇檔案</string>
     <string name="attachment_conflict_title">不支援此附件</string>

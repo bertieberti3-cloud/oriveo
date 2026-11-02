@@ -287,6 +287,7 @@
     <string name="technical_details">รายละเอียดทางเทคนิค</string>
     <string name="attach">แนบ</string>
     <string name="photo_library">ห้องสมุดรูปภาพ</string>
+    <string name="composer_paste_image">วางรูปภาพ</string>
     <string name="take_photo">ถ่ายภาพ</string>
     <string name="choose_file">เลือกไฟล์</string>
     <string name="attachment_conflict_title">ไม่รองรับไฟล์แนบ</string>

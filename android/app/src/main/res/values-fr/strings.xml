@@ -219,6 +219,7 @@
     <!-- Attachments -->
     <string name="attach">Joindre</string>
     <string name="photo_library">Photothèque</string>
+    <string name="composer_paste_image">Coller l’image</string>
     <string name="take_photo">Prendre une photo</string>
     <string name="choose_file">Choisir un fichier</string>
     <string name="attachment_conflict_title">Pièce jointe non prise en charge</string>

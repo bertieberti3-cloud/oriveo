@@ -287,6 +287,7 @@
     <string name="technical_details">Chi tiết kỹ thuật</string>
     <string name="attach">Gắn</string>
     <string name="photo_library">Thư viện ảnh</string>
+    <string name="composer_paste_image">Dán ảnh</string>
     <string name="take_photo">Chụp ảnh</string>
     <string name="choose_file">Chọn tệp</string>
     <string name="attachment_conflict_title">Tệp đính kèm không được hỗ trợ</string>

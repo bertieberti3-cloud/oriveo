@@ -290,6 +290,7 @@
     <string name="technical_details">Технические детали</string>
     <string name="attach">Прикрепить</string>
     <string name="photo_library">Библиотека фотографий</string>
+    <string name="composer_paste_image">Вставить изображение</string>
     <string name="take_photo">Сфотографироваться</string>
     <string name="choose_file">Выберите файл</string>
     <string name="attachment_conflict_title">Вложение не поддерживается</string>

@@ -469,6 +469,7 @@
     <!-- Attachments -->
     <string name="attach">附件</string>
     <string name="photo_library">相册</string>
+    <string name="composer_paste_image">粘贴图片</string>
     <string name="take_photo">拍照</string>
     <string name="choose_file">选择文件</string>
     <string name="attachment_conflict_title">不支持此附件</string>

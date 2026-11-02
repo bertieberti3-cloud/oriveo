@@ -287,6 +287,7 @@
     <string name="technical_details">Detail Teknis</string>
     <string name="attach">Menempel</string>
     <string name="photo_library">Perpustakaan Foto</string>
+    <string name="composer_paste_image">Tempel gambar</string>
     <string name="take_photo">Ambil Foto</string>
     <string name="choose_file">Pilih File</string>
     <string name="attachment_conflict_title">Lampiran Tidak Didukung</string>

@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.CameraAlt
+import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Videocam
@@ -56,6 +57,9 @@ internal fun ComposerAttachmentEntryButton(
     onPickImage: () -> Unit,
     onPickVideo: () -> Unit,
     onPickFile: () -> Unit,
+    /** Clipboard holds an image this model accepts: adds "Paste image" as the first menu entry. */
+    showPasteImage: Boolean = false,
+    onPasteImage: () -> Unit = {},
     cameraItem: ComposerAttachmentMenuItem,
     imageItem: ComposerAttachmentMenuItem,
     videoItem: ComposerAttachmentMenuItem,
@@ -133,7 +137,18 @@ internal fun ComposerAttachmentEntryButton(
             }
         }
 
-        val menuItems = listOf(
+        val menuItems = listOfNotNull(
+            // First: pasting is the fastest path when the image is already on the clipboard.
+            if (showPasteImage) {
+                AttachmentMenuEntry(
+                    item = imageItem.copy(shown = true, enabled = true),
+                    labelRes = R.string.composer_paste_image,
+                    icon = Icons.Outlined.ContentPaste,
+                    onPick = onPasteImage,
+                )
+            } else {
+                null
+            },
             AttachmentMenuEntry(cameraItem, R.string.take_photo, Icons.Outlined.CameraAlt, onPickCamera),
             AttachmentMenuEntry(imageItem, R.string.photo_library, Icons.Outlined.Image, onPickImage),
             AttachmentMenuEntry(videoItem, R.string.video, Icons.Outlined.Videocam, onPickVideo),

@@ -66,6 +66,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -85,6 +86,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -148,6 +156,7 @@ import dev.chrisbanes.haze.ExperimentalHazeApi
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
 @OptIn(
@@ -814,6 +823,15 @@ internal fun EnhancedComposer(
     }
 
     val composerContext = LocalContext.current
+    // Whether the clipboard holds an image, refreshed when the field gains focus, when the app
+    // resumes (the image may have been copied elsewhere) and whenever the attach menu opens.
+    // Reading the clip here never reads the image bytes: those are copied only when the user
+    // pastes, so a text-only clipboard stays false and text paste reaches the field untouched.
+    var clipboardHasImage by remember { mutableStateOf(false) }
+    val composerScope = rememberCoroutineScope()
+    val refreshClipboardImage = {
+        clipboardHasImage = ComposerClipboardImage.hasImage(composerContext)
+    }
     var pendingCameraUri by remember { mutableStateOf<android.net.Uri?>(null) }
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture(),
@@ -843,6 +861,21 @@ internal fun EnhancedComposer(
         )
         pendingCameraUri = uri
         launchExternalActivity { cameraLauncher.launch(uri) }
+    }
+
+    // Ctrl+V / Cmd+V and the attach menu's "Paste image": the copy goes through the same
+    // onProcessImageUri as the picker and the camera, so compression, the size / count limits and
+    // the preview tray are the existing ones. Materialize returns the clipboard URIs unchanged when
+    // an image cannot be copied, and the import reports it through the usual outcome.
+    val pasteClipboardImage: () -> Unit = {
+        composerScope.launch {
+            ComposerClipboardImage.materialize(composerContext).forEach(onProcessImageUri)
+            refreshClipboardImage()
+        }
+    }
+    LaunchedEffect(composerFocused, showAttachmentPicker, composerResumed) {
+        // Field focus, an opened menu, or coming back from the app the image was copied in.
+        if (composerFocused || showAttachmentPicker || composerResumed) refreshClipboardImage()
     }
 
     if (showAttachmentPickerUnavailableDialog) {
@@ -1153,7 +1186,16 @@ internal fun EnhancedComposer(
                             // Vision-model case: the image entry is split into "camera" + "photo library", consistent with iOS / ChatGPT / Claude.
                             // The camera shows only when the device has one (avoids showing it on ChromeOS / foldable / tablet devices without a camera).
                             val cameraItem = attachmentEntry.camera(deviceHasCamera)
-                            val totalAttachmentOptions = (listOf(cameraItem) + attachmentEntry.items).count { it.shown }
+                            // "Paste image" only when the model accepts images and the clipboard
+                            // actually holds one; it is part of the option count so the menu opens
+                            // even when the photo library is the only media entry.
+                            val pasteImageAvailable = controlsEnabled &&
+                                !attachmentUploadBlocked &&
+                                attachmentEntry.image.enabled &&
+                                clipboardHasImage
+                            val totalAttachmentOptions =
+                                (listOf(cameraItem) + attachmentEntry.items).count { it.shown } +
+                                    if (pasteImageAvailable) 1 else 0
                             ComposerAttachmentEntryButton(
                                 icon = attachmentButtonIcon,
                                 accent = attachmentAccent,
@@ -1162,10 +1204,20 @@ internal fun EnhancedComposer(
                                 disabled = attachmentEntryDisabled,
                                 showMenu = showAttachmentPicker,
                                 onDismissMenu = { showAttachmentPicker = false },
+                                showPasteImage = pasteImageAvailable,
+                                onPasteImage = {
+                                    showAttachmentPicker = false
+                                    pasteClipboardImage()
+                                },
                                 onClick = {
                                     if (attachmentEntryDisabled) return@ComposerAttachmentEntryButton
+                                    // The clipboard can change while the screen is idle, so this
+                                    // click decides on a fresh check rather than last frame's state.
+                                    val clipboardImageNow = attachmentEntry.image.enabled &&
+                                        ComposerClipboardImage.hasImage(composerContext)
+                                    refreshClipboardImage()
                                     when {
-                                        totalAttachmentOptions > 1 -> showAttachmentPicker = true
+                                        totalAttachmentOptions > 1 || clipboardImageNow -> showAttachmentPicker = true
                                         attachmentEntry.image.enabled -> {
                                             launchExternalActivity {
                                                 imagePicker.launch(
@@ -1231,6 +1283,8 @@ internal fun EnhancedComposer(
                                 if (focused) onComposerFocused()
                             },
                             selectionProbe = selectionProbe,
+                            onPasteImageShortcut = if (controlsEnabled) pasteClipboardImage else null,
+                            clipboardState = { ComposerClipboardImage.state(composerContext) },
                             modifier = Modifier.weight(1f),
                         )
 
@@ -1307,6 +1361,16 @@ private fun ComposerTextField(
     focusRequester: FocusRequester,
     onFocusChanged: (Boolean) -> Unit,
     selectionProbe: ComposerSelectionProbe? = null,
+    /**
+     * Ctrl+V / Cmd+V with an image on the clipboard. Null disables the shortcut entirely (the
+     * composer is read-only or generating). The handler runs only when the clipboard really holds
+     * an image, so a text paste is never consumed and reaches the field as before.
+     */
+    onPasteImageShortcut: (() -> Unit)? = null,
+    /** Re-read on the shortcut itself: the clipboard can change between two key presses. */
+    clipboardState: () -> ComposerClipboardImage.ClipboardState = {
+        ComposerClipboardImage.ClipboardState(hasImage = false, hasText = false)
+    },
     modifier: Modifier = Modifier,
 ) {
     val colors = OriveoTheme.colors
@@ -1323,7 +1387,39 @@ private fun ComposerTextField(
             // soon as the screen resolution changes.
             .testTag("chat_composer_input")
             .focusRequester(focusRequester)
-            .onFocusChanged { onFocusChanged(it.isFocused) },
+            .onFocusChanged { onFocusChanged(it.isFocused) }
+            // Preview so the image paste can win over the field only when there is an image to
+            // paste: a text-only clipboard returns false and BasicTextField handles Ctrl/Cmd+V.
+            .onPreviewKeyEvent { event ->
+                val paste = onPasteImageShortcut
+                if (paste == null) {
+                    false
+                } else {
+                    val clipboard = clipboardState()
+                    when (
+                        ComposerClipboardImage.pasteShortcut(
+                            isKeyDown = event.type == KeyEventType.KeyDown,
+                            isV = event.key == Key.V,
+                            isCtrlPressed = event.isCtrlPressed,
+                            isMetaPressed = event.isMetaPressed,
+                            hasImage = clipboard.hasImage,
+                            hasText = clipboard.hasText,
+                        )
+                    ) {
+                        // Image pasted, nothing else to do: the URI must not land in the text.
+                        ComposerClipboardImage.PasteShortcut.IMAGE_ONLY -> {
+                            paste()
+                            true
+                        }
+                        // Mixed clip: attach the image and let the text reach the field as usual.
+                        ComposerClipboardImage.PasteShortcut.IMAGE_AND_TEXT -> {
+                            paste()
+                            false
+                        }
+                        ComposerClipboardImage.PasteShortcut.NONE -> false
+                    }
+                }
+            },
         enabled = enabled,
         minLines = 1,
         maxLines = 5,

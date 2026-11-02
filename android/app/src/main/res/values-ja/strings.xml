@@ -219,6 +219,7 @@
     <!-- Attachments -->
     <string name="attach">添付</string>
     <string name="photo_library">フォトライブラリ</string>
+    <string name="composer_paste_image">画像を貼り付け</string>
     <string name="take_photo">写真を撮る</string>
     <string name="choose_file">ファイルを選択</string>
     <string name="attachment_conflict_title">添付ファイル非対応</string>

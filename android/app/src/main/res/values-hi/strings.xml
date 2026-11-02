@@ -288,6 +288,7 @@
     <string name="technical_details">टेक्निकल डिटेल</string>
     <string name="attach">अटैच करें</string>
     <string name="photo_library">चित्र पुस्तकालय</string>
+    <string name="composer_paste_image">छवि चिपकाएँ</string>
     <string name="take_photo">फोटो लो</string>
     <string name="choose_file">फाइलें चुनें</string>
     <string name="attachment_conflict_title">अनुलग्नक समर्थित नहीं है</string>

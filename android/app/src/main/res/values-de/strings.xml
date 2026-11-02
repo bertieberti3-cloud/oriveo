@@ -219,6 +219,7 @@
     <!-- Attachments -->
     <string name="attach">Anhängen</string>
     <string name="photo_library">Fotobibliothek</string>
+    <string name="composer_paste_image">Bild einfügen</string>
     <string name="take_photo">Foto aufnehmen</string>
     <string name="choose_file">Datei auswählen</string>
     <string name="attachment_conflict_title">Anhang nicht unterstützt</string>

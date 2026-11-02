@@ -219,6 +219,7 @@
     <!-- Attachments -->
     <string name="attach">첨부</string>
     <string name="photo_library">사진 보관함</string>
+    <string name="composer_paste_image">이미지 붙여넣기</string>
     <string name="take_photo">사진 촬영</string>
     <string name="choose_file">파일 선택</string>
     <string name="attachment_conflict_title">첨부 파일 미지원</string>

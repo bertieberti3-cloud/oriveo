@@ -219,6 +219,7 @@
     <!-- Attachments -->
     <string name="attach">إرفاق</string>
     <string name="photo_library">مكتبة الصور</string>
+    <string name="composer_paste_image">لصق صورة</string>
     <string name="take_photo">التقاط صورة</string>
     <string name="choose_file">اختيار ملف</string>
     <string name="attachment_conflict_title">المرفق غير مدعوم</string>
