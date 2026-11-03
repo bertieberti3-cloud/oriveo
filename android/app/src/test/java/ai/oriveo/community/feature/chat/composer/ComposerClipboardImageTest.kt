@@ -261,9 +261,21 @@ class ComposerClipboardImageTest {
                 isKeyDown = false, isV = true, isCtrlPressed = true, isMetaPressed = false, hasImage = true, hasText = false,
             ),
         )
-        assertFalse(
-            "a plain text clip has no text to hand over twice",
+        // A text clip does carry text; the point is that without an image the shortcut is never
+        // ours, so the field pastes it itself.
+        assertTrue(
+            "a plain text clip has text, but hasImage is false so pasteShortcut stays NONE",
             ComposerClipboardImage.hasText(ClipData.newPlainText("text", "hello")),
+        )
+        assertTrue(
+            "a plain text clip carries no image",
+            ComposerClipboardImage.imageUris(ClipData.newPlainText("text", "hello")).isEmpty(),
+        )
+        assertEquals(
+            ComposerClipboardImage.PasteShortcut.NONE,
+            ComposerClipboardImage.pasteShortcut(
+                isKeyDown = true, isV = true, isCtrlPressed = true, isMetaPressed = false, hasImage = false, hasText = false,
+            ),
         )
     }
 
