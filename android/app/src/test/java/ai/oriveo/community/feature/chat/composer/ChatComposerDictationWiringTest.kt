@@ -7,7 +7,7 @@ import org.junit.Test
 /**
  * Locks the dictation wiring of the chat composer: the input row is wrapped in [DictationInputSwitcher],
  * the text shell carries [DictationMicButton], and the selection goes through selectionProbe into
- * rememberComposerLengthLimitedField. This is a source scan because EnhancedComposer is too large to compose
+ * rememberComposerTextState. This is a source scan because EnhancedComposer is too large to compose
  * as a whole in a unit test. ChatComposerHost attaches the conversation-slot host (HOME_DRAFT_KEY when there is
  * no conversation), the status card sits above the input, and the handle and probe are passed into EnhancedComposer.
  */
@@ -34,11 +34,11 @@ class ChatComposerDictationWiringTest {
     }
 
     @Test
-    fun `selection probe reaches the length limited field`() {
+    fun `selection probe reaches the state based field`() {
         assertTrue("EnhancedComposer is missing the selectionProbe wiring", source.contains("selectionProbe = "))
         assertTrue(
-            "selectionProbe must be passed to rememberComposerLengthLimitedField",
-            source.contains("rememberComposerLengthLimitedField(text = text, onTextChange = onValueChange, selectionProbe = selectionProbe)"),
+            "selectionProbe must be passed to rememberComposerTextState",
+            source.contains("rememberComposerTextState(text = text, onTextChange = onValueChange, selectionProbe = selectionProbe)"),
         )
     }
 

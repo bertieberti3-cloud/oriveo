@@ -112,6 +112,23 @@ class ComposerClipboardImageTest {
     }
 
     @Test
+    fun `hasImage follows a clipboard change`() {
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val imageClip = ClipData(ClipDescription("image", arrayOf("image/png")), ClipData.Item(imageUri))
+
+        clipboard.setPrimaryClip(ClipData.newPlainText("text", "hello"))
+        assertFalse("a text clip is not an image", ComposerClipboardImage.hasImage(context))
+
+        // The composer's clip listener relies on this: a screenshot copied while the chat is open
+        // must be visible on the very next read, without a focus change.
+        clipboard.setPrimaryClip(imageClip)
+        assertTrue("a screenshot on the clipboard must be seen at once", ComposerClipboardImage.hasImage(context))
+
+        clipboard.setPrimaryClip(ClipData.newPlainText("text", "hello again"))
+        assertFalse("back to text", ComposerClipboardImage.hasImage(context))
+    }
+
+    @Test
     fun `a homogeneous image clip keeps every item without asking the provider`() {
         val clip = ClipData(ClipDescription("images", arrayOf("image/png")), ClipData.Item(imageUri))
         clip.addItem(ClipData.Item(Uri.parse("content://media/external/images/media/43")))

@@ -14,6 +14,12 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
+import androidx.compose.foundation.content.MediaType
+import androidx.compose.foundation.content.ReceiveContentListener
+import androidx.compose.foundation.content.TransferableContent
+import androidx.compose.foundation.content.consume
+import androidx.compose.foundation.content.contentReceiver
+import androidx.compose.foundation.content.hasMediaType
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -41,6 +47,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
@@ -60,6 +67,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -150,7 +158,7 @@ import ai.oriveo.community.core.util.launchExternalActivitySafely
 import ai.oriveo.community.ui.theme.opacity
 import ai.oriveo.community.ui.theme.OriveoBorderWidth
 import ai.oriveo.community.ui.component.ComposerSelectionProbe
-import ai.oriveo.community.ui.component.rememberComposerLengthLimitedField
+import ai.oriveo.community.ui.component.rememberComposerTextState
 import ai.oriveo.community.ui.theme.OriveoTheme
 import dev.chrisbanes.haze.ExperimentalHazeApi
 import dev.chrisbanes.haze.HazeState
@@ -832,6 +840,19 @@ internal fun EnhancedComposer(
     val refreshClipboardImage = {
         clipboardHasImage = ComposerClipboardImage.hasImage(composerContext)
     }
+    // Samsung's keyboard clipboard panel (One UI) refuses to hand an image to a Compose text field
+    // and shows "cannot paste images in this app": the editor advertises no image content types,
+    // and Compose only wires those up for the TextFieldState field (Modifier.contentReceiver). The
+    // in-app entry point therefore has to be live the moment a screenshot lands on the clipboard,
+    // instead of waiting for the next focus change or menu open.
+    DisposableEffect(composerContext) {
+        val clipboardManager = composerContext.getSystemService(android.content.ClipboardManager::class.java)
+        val listener = android.content.ClipboardManager.OnPrimaryClipChangedListener {
+            refreshClipboardImage()
+        }
+        clipboardManager?.addPrimaryClipChangedListener(listener)
+        onDispose { clipboardManager?.removePrimaryClipChangedListener(listener) }
+    }
     var pendingCameraUri by remember { mutableStateOf<android.net.Uri?>(null) }
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture(),
@@ -863,10 +884,17 @@ internal fun EnhancedComposer(
         launchExternalActivity { cameraLauncher.launch(uri) }
     }
 
-    // Ctrl+V / Cmd+V and the attach menu's "Paste image": the copy goes through the same
-    // onProcessImageUri as the picker and the camera, so compression, the size / count limits and
-    // the preview tray are the existing ones. Materialize returns the clipboard URIs unchanged when
-    // an image cannot be copied, and the import reports it through the usual outcome.
+    // Ctrl+V / Cmd+V, the attach menu's "Paste image", and an image handed over as field content
+    // (IME / Samsung clipboard): all three end in the same onProcessImageUri the picker and the
+    // camera use, so compression, the size and count limits and the preview tray are the existing
+    // ones. Materialize returns the clipboard URIs unchanged when an image cannot be copied, and
+    // the import reports it through the usual outcome.
+    val pasteImageContent: (android.content.ClipData) -> Unit = { clip ->
+        composerScope.launch {
+            ComposerClipboardImage.materialize(composerContext, clip).forEach(onProcessImageUri)
+            refreshClipboardImage()
+        }
+    }
     val pasteClipboardImage: () -> Unit = {
         composerScope.launch {
             ComposerClipboardImage.materialize(composerContext).forEach(onProcessImageUri)
@@ -1285,6 +1313,7 @@ internal fun EnhancedComposer(
                             selectionProbe = selectionProbe,
                             onPasteImageShortcut = if (controlsEnabled) pasteClipboardImage else null,
                             clipboardState = { ComposerClipboardImage.state(composerContext) },
+                            onPasteImageContent = if (controlsEnabled) pasteImageContent else null,
                             modifier = Modifier.weight(1f),
                         )
 
@@ -1352,6 +1381,7 @@ internal fun EnhancedComposer(
  * `ChatScreenContent`, and not `ChatMessagesList`. Taking `value: String` as a parameter here would
  * void that protection entirely (a changed parameter makes the caller non skippable).
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ComposerTextField(
     textProvider: () -> String,
@@ -1371,82 +1401,109 @@ private fun ComposerTextField(
     clipboardState: () -> ComposerClipboardImage.ClipboardState = {
         ComposerClipboardImage.ClipboardState(hasImage = false, hasText = false)
     },
+    /**
+     * Images arriving as field content (Samsung/IME clipboard, `Modifier.contentReceiver`). The
+     * clip is handed to the same attachment import the picker and the camera use; null keeps the
+     * field text-only, which is what a read-only composer needs.
+     */
+    onPasteImageContent: ((android.content.ClipData) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val colors = OriveoTheme.colors
     val text = textProvider()
-    // The length limit has to read and write the selection (after a paste in the middle is cut the
-    // caret lands at the end of the kept part), hence the TextFieldValue overload. The selection
-    // state stays in this composable; the owner still receives a plain String.
-    val field = rememberComposerLengthLimitedField(text = text, onTextChange = onValueChange, selectionProbe = selectionProbe)
-    BasicTextField(
-        value = field.value,
-        onValueChange = field.onValueChange,
-        modifier = modifier
-            // UI tests locate the field by resource-id rather than by coordinates, which break as
-            // soon as the screen resolution changes.
-            .testTag("chat_composer_input")
-            .focusRequester(focusRequester)
-            .onFocusChanged { onFocusChanged(it.isFocused) }
-            // Preview so the image paste can win over the field only when there is an image to
-            // paste: a text-only clipboard returns false and BasicTextField handles Ctrl/Cmd+V.
-            .onPreviewKeyEvent { event ->
-                val paste = onPasteImageShortcut
-                if (paste == null) {
-                    false
-                } else {
-                    val clipboard = clipboardState()
-                    when (
-                        ComposerClipboardImage.pasteShortcut(
-                            isKeyDown = event.type == KeyEventType.KeyDown,
-                            isV = event.key == Key.V,
-                            isCtrlPressed = event.isCtrlPressed,
-                            isMetaPressed = event.isMetaPressed,
-                            hasImage = clipboard.hasImage,
-                            hasText = clipboard.hasText,
-                        )
-                    ) {
-                        // Image pasted, nothing else to do: the URI must not land in the text.
-                        ComposerClipboardImage.PasteShortcut.IMAGE_ONLY -> {
-                            paste()
-                            true
-                        }
-                        // Mixed clip: attach the image and let the text reach the field as usual.
-                        ComposerClipboardImage.PasteShortcut.IMAGE_AND_TEXT -> {
-                            paste()
-                            false
-                        }
-                        ComposerClipboardImage.PasteShortcut.NONE -> false
-                    }
+    val composerContext = LocalContext.current
+    // Only the TextFieldState override of BasicTextField can be a content receiver, which is what
+    // makes the editor advertise image/* to the keyboard and accept a pasted screenshot. The length
+    // limit, the selection probe and the owner's plain String are preserved by the helper.
+    val field = rememberComposerTextState(text = text, onTextChange = onValueChange, selectionProbe = selectionProbe)
+
+    val contentReceiver = remember(onPasteImageContent, composerContext) {
+        object : ReceiveContentListener {
+            override fun onReceive(transferableContent: TransferableContent): TransferableContent? {
+                val paste = onPasteImageContent ?: return transferableContent
+                if (!transferableContent.hasMediaType(MediaType.Image)) return transferableContent
+                val clip = transferableContent.clipEntry.clipData
+                // The clip description can be "*/*" (a mixed clip), so the provider gets the last
+                // word here — the same rule ComposerClipboardImage applies to the clipboard.
+                val images = ComposerClipboardImage.imageUris(clip) { uri ->
+                    composerContext.contentResolver.getType(uri)
                 }
-            },
-        enabled = enabled,
-        minLines = 1,
-        maxLines = 5,
-        textStyle = OriveoTheme.typography.body.copy(
-            color = if (enabled) colors.textPrimary else colors.textTertiary,
-        ),
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
-        cursorBrush = SolidColor(colors.primary),
-        decorationBox = { innerTextField ->
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 44.dp)
-                    .padding(vertical = 8.dp),
-                contentAlignment = Alignment.CenterStart,
-            ) {
-                if (text.isBlank()) {
-                    Text(
-                        text = stringResource(placeholderRes),
-                        style = OriveoTheme.typography.body,
-                        color = if (enabled) colors.textSecondary else colors.textTertiary,
-                    )
-                }
-                innerTextField()
+                if (images.isEmpty()) return transferableContent
+                paste(clip)
+                // Consume only the image items: a caption pasted together with a screenshot still
+                // reaches the text field.
+                return transferableContent.consume { item -> item.uri != null && item.uri in images }
             }
-        },
-    )
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 44.dp)
+            .padding(vertical = 8.dp),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        if (text.isBlank()) {
+            Text(
+                text = stringResource(placeholderRes),
+                style = OriveoTheme.typography.body,
+                color = if (enabled) colors.textSecondary else colors.textTertiary,
+            )
+        }
+        BasicTextField(
+            state = field.state,
+            modifier = Modifier
+                .fillMaxWidth()
+                // UI tests locate the field by resource-id rather than by coordinates, which break
+                // as soon as the screen resolution changes.
+                .testTag("chat_composer_input")
+                .focusRequester(focusRequester)
+                .onFocusChanged { onFocusChanged(it.isFocused) }
+                // Declares image/* to the IME and receives an image pasted as field content.
+                .contentReceiver(contentReceiver)
+                // Preview so the image paste can win over the field only when there is an image to
+                // paste: a text-only clipboard returns false and BasicTextField handles Ctrl/Cmd+V.
+                .onPreviewKeyEvent { event ->
+                    val paste = onPasteImageShortcut
+                    if (paste == null) {
+                        false
+                    } else {
+                        val clipboard = clipboardState()
+                        when (
+                            ComposerClipboardImage.pasteShortcut(
+                                isKeyDown = event.type == KeyEventType.KeyDown,
+                                isV = event.key == Key.V,
+                                isCtrlPressed = event.isCtrlPressed,
+                                isMetaPressed = event.isMetaPressed,
+                                hasImage = clipboard.hasImage,
+                                hasText = clipboard.hasText,
+                            )
+                        ) {
+                            // Image pasted, nothing else to do: the URI must not land in the text.
+                            ComposerClipboardImage.PasteShortcut.IMAGE_ONLY -> {
+                                paste()
+                                true
+                            }
+                            // Mixed clip: attach the image and let the text reach the field as usual.
+                            ComposerClipboardImage.PasteShortcut.IMAGE_AND_TEXT -> {
+                                paste()
+                                false
+                            }
+                            ComposerClipboardImage.PasteShortcut.NONE -> false
+                        }
+                    }
+                },
+            enabled = enabled,
+            inputTransformation = field.inputTransformation,
+            textStyle = OriveoTheme.typography.body.copy(
+                color = if (enabled) colors.textPrimary else colors.textTertiary,
+            ),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
+            lineLimits = TextFieldLineLimits.MultiLine(minHeightInLines = 1, maxHeightInLines = 5),
+            cursorBrush = SolidColor(colors.primary),
+        )
+    }
 }
 
 private const val DRAFT_GLOW_ALPHA_RATIO = 0.705f

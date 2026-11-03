@@ -8,8 +8,9 @@ import org.junit.Test
 /**
  * Locks the clipboard-image wiring to the existing attachment pipeline: a pasted image goes out
  * through the same `onProcessImageUri` as the picker and the camera (never through a second import
- * path), the text field only intercepts Ctrl/Cmd+V when the clipboard holds an image, and the
- * composer still builds its value through rememberComposerLengthLimitedField.
+ * path), the content receiver consumes image items of the pasted clip, the text field only
+ * intercepts Ctrl/Cmd+V when the clipboard holds an image, and the composer builds its text through
+ * the `TextFieldState` helper.
  *
  * A source scan, like [ChatComposerDictationWiringTest]: EnhancedComposer is too large to compose
  * as a whole in a unit test.
@@ -30,9 +31,33 @@ class ComposerClipboardImageWiringTest {
             "materialize must feed onProcessImageUri, the same callback the picker uses",
             source.contains("ComposerClipboardImage.materialize(composerContext).forEach(onProcessImageUri)"),
         )
+        assertTrue(
+            "an image received as field content must take the same import path",
+            source.contains("ComposerClipboardImage.materialize(composerContext, clip).forEach(onProcessImageUri)") &&
+                source.contains("onPasteImageContent = if (controlsEnabled) pasteImageContent else null"),
+        )
         assertFalse(
             "no second import path: the paste must not call the processor or the store directly",
             source.contains("AttachmentProcessor(") || source.contains("attachmentStore.saveCompressedImage"),
+        )
+    }
+
+    @Test
+    fun `the content receiver consumes image items and leaves the text`() {
+        val fieldAt = source.indexOf("private fun ComposerTextField(")
+        assertTrue("ComposerTextField is missing", fieldAt >= 0)
+        val handler = source.substring(fieldAt)
+        assertTrue(
+            "the receiver must filter on the image media type, not on a guessed MIME",
+            handler.contains("hasMediaType(MediaType.Image)"),
+        )
+        assertTrue(
+            "only image items are consumed, so a caption pasted with a screenshot still pastes",
+            handler.contains(".consume { item -> item.uri != null && item.uri in images }"),
+        )
+        assertTrue(
+            "the field must declare the receiver, which is what advertises image/* to the keyboard",
+            handler.contains(".contentReceiver(contentReceiver)"),
         )
     }
 
@@ -62,12 +87,16 @@ class ComposerClipboardImageWiringTest {
             handler.contains("ComposerClipboardImage.PasteShortcut.NONE -> false"),
         )
         assertTrue(
-            "the length-limited value must stay the field's only value source",
-            handler.contains("rememberComposerLengthLimitedField(text = text, onTextChange = onValueChange, selectionProbe = selectionProbe)"),
+            "the state-based field must own the text and apply the limiter through its transformation",
+            handler.contains("rememberComposerTextState(text = text, onTextChange = onValueChange, selectionProbe = selectionProbe)"),
         )
         assertTrue(
-            "text edits, including a normal paste, must still flow through the limiter",
-            handler.contains("onValueChange = field.onValueChange"),
+            "text edits, including a normal paste, must still flow through the field's own state",
+            handler.contains("state = field.state") && handler.contains("inputTransformation = field.inputTransformation"),
+        )
+        assertTrue(
+            "images must arrive as field content: this is what makes the editor advertise image/*",
+            handler.contains(".contentReceiver(contentReceiver)"),
         )
     }
 

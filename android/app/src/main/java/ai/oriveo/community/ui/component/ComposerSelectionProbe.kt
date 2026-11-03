@@ -9,7 +9,8 @@ import ai.oriveo.community.core.voice.DictationRules
 /**
  * Selection exit of a length-limited composer, used to insert dictation text at the caret.
  *
- * The field ([rememberComposerLengthLimitedField]) writes every selection it settles on into [selection]; the
+ * The field ([rememberComposerTextState] in the chat composer, [rememberComposerLengthLimitedField]
+ * in the home composer) writes every selection it settles on into [selection]; the
  * probe outlives the field, so when the field is swapped out the cached selection is still used (clamped to
  * the current text). [insert] leaves a pending caret that the field applies the next time it adopts upstream
  * text (initial composition or external text sync), so the caret lands right after the inserted text.
