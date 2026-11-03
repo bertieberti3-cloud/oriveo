@@ -3,6 +3,7 @@ package ai.oriveo.community.ui.component
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.net.Uri
 import android.util.Base64
 import android.util.LruCache
 import androidx.compose.runtime.Composable
@@ -246,4 +247,46 @@ private fun attachmentDisplayCacheKey(attachment: Attachment): String {
         attachment.base64Data?.length?.toString().orEmpty(),
     ).joinToString(":")
     return "${attachment.id}:display:$sourceKey"
+}
+
+// --- Chat background image support (device-scoped custom photo, not attachments) ---
+
+/**
+ * Loads a full-screen chat background bitmap from a persisted URI (content:// or file://).
+ * Samples to avoid OOM on large photos; ARGB_8888 for quality over thumbnails.
+ */
+private suspend fun loadChatBackgroundBitmap(
+    context: Context,
+    uriStr: String,
+    maxDecodeEdgePx: Int,
+): ImageBitmap? = withContext(Dispatchers.IO) {
+    val uri = runCatching { Uri.parse(uriStr) }.getOrNull() ?: return@withContext null
+    val bytes = try {
+        if (uriStr.startsWith("file:") || uriStr.startsWith("/")) {
+            val path = if (uriStr.startsWith("file:")) uri.path else uriStr
+            val f = path?.let { java.io.File(it) }
+            f?.takeIf { it.exists() }?.inputStream()?.use { it.readBytes() }
+        } else {
+            context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+        }
+    } catch (_: Exception) {
+        null
+    } ?: return@withContext null
+
+    val decoded = decodeSampledBitmap(bytes, maxDecodeEdgePx, preferRgb565 = false)
+        ?: return@withContext null
+    decoded.asImageBitmap()
+}
+
+@Composable
+fun rememberChatBackgroundBitmap(
+    uriString: String?,
+    maxDecodeEdgePx: Int = 2048,
+): ImageBitmap? {
+    if (uriString.isNullOrBlank()) return null
+    val context = LocalContext.current.applicationContext
+    val bitmap by produceState<ImageBitmap?>(initialValue = null, uriString, maxDecodeEdgePx) {
+        value = loadChatBackgroundBitmap(context, uriString, maxDecodeEdgePx)
+    }
+    return bitmap
 }

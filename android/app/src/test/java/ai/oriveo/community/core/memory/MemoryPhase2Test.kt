@@ -576,6 +576,7 @@ class MemoryPhase2Test {
     ) {
         every { appPreferencesRepository.lastUsedModelRef } returns flowOf(null)
         every { appPreferencesRepository.memoryText } returns MutableStateFlow(memoryText)
+        every { appPreferencesRepository.chatBackgroundUri } returns MutableStateFlow(null)
         // Injection now reads local memory items: the whole text becomes one fact item (blank text creates no item).
         memoryItems.value = memoryText.trim().takeIf { it.isNotEmpty() }?.let { text ->
             listOf(

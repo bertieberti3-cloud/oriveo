@@ -46,6 +46,7 @@ internal class DraftChatViewModelFixture(
         every { appPreferences.memoryText } returns MutableStateFlow("")
         every { appPreferences.memoryAntiForgetEnabled } returns MutableStateFlow(false)
         every { appPreferences.memoryAntiForgetText } returns MutableStateFlow("")
+        every { appPreferences.chatBackgroundUri } returns flowOf(null)
         coEvery { appPreferences.hasAcceptedProviderDisclosure(any()) } returns true
         val providers = mockk<ProviderRepository>()
         every { providers.observeAll() } returns flowOf(listOf(provider))

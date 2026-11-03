@@ -198,6 +198,7 @@ import ai.oriveo.community.ui.component.OriveoSecondaryButton
 import ai.oriveo.community.ui.component.ProviderBadgeIcon
 import ai.oriveo.community.ui.component.StatusTone
 import ai.oriveo.community.ui.component.rememberAttachmentThumbnailBitmap
+import ai.oriveo.community.ui.component.rememberChatBackgroundBitmap
 import ai.oriveo.community.ui.component.markdown.MarkdownRenderCache
 import ai.oriveo.community.ui.component.markdown.MarkdownTheme
 import ai.oriveo.community.ui.theme.OriveoBorderWidth
@@ -271,6 +272,7 @@ internal fun ChatScreenContent(
     val isInitialLoading by viewModel.isInitialLoading.collectAsStateWithLifecycle()
     val showMemoryIndicator by viewModel.showMemoryIndicator.collectAsStateWithLifecycle()
     val currentMemoryItems by viewModel.currentMemoryItems.collectAsStateWithLifecycle()
+    val chatBackgroundUri by viewModel.chatBackgroundUri.collectAsStateWithLifecycle()
     val colors = OriveoTheme.colors
     val markdownColors = MarkdownTheme.colors()
     val screenH = OriveoTheme.layout.screenH
@@ -626,7 +628,27 @@ internal fun ChatScreenContent(
             modifier = Modifier.hazeSource(state = hazeState, zIndex = 0f),
         )
 
-        ChatAuroraBackground(prominent = messagesEmpty)
+        if (!chatBackgroundUri.isNullOrBlank()) {
+            val bgBitmap = rememberChatBackgroundBitmap(chatBackgroundUri)
+            bgBitmap?.let { bmp ->
+                Image(
+                    bitmap = bmp,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                // Light scrim keeps messages and chrome readable over any photo; tuned per mode.
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Color.Black.copy(alpha = if (OriveoTheme.isDark) 0.40f else 0.25f),
+                        ),
+                )
+            }
+        } else {
+            ChatAuroraBackground(prominent = messagesEmpty)
+        }
 
         Box(
             modifier = Modifier

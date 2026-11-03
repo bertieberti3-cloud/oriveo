@@ -201,6 +201,10 @@
     <string name="theme_summary_light">Светлая · %1$s</string>
     <string name="theme_summary_dark">Тёмная · %1$s</string>
     <string name="language">Язык</string>
+    <string name="chat_background">Фон чата</string>
+    <string name="chat_background_standard">Стандартный</string>
+    <string name="chat_background_custom">Своё изображение</string>
+    <string name="chat_background_reset">Сбросить</string>
     <string name="backup_and_export">Резервное копирование и экспорт</string>
     <string name="privacy_policy">политика конфиденциальности</string>
     <string name="terms_of_service">Условия использования</string>

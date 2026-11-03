@@ -84,6 +84,12 @@ class FeatureBadgesTest {
         assertFalse(AppPreferenceKeys.isUserState(AppPreferenceKeys.FEATURE_BADGES_SEEN))
     }
 
+    @Test
+    fun `chat background uri key is device scoped`() {
+        assertTrue(AppPreferenceKeys.CHAT_BACKGROUND_URI in AppPreferenceKeys.DEVICE_SCOPED_KEYS)
+        assertFalse(AppPreferenceKeys.isUserState(AppPreferenceKeys.CHAT_BACKGROUND_URI))
+    }
+
     private fun repoRoot(): File =
         File(System.getProperty("user.dir") ?: ".").absoluteFile.parentFile!!.parentFile!!
 

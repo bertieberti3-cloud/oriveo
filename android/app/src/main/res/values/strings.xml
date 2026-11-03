@@ -223,6 +223,10 @@
     <string name="theme_summary_light">Light · %1$s</string>
     <string name="theme_summary_dark">Dark · %1$s</string>
     <string name="language">Language</string>
+    <string name="chat_background">Chat background</string>
+    <string name="chat_background_standard">Standard</string>
+    <string name="chat_background_custom">Custom</string>
+    <string name="chat_background_reset">Reset</string>
     <string name="backup_and_export">Backup &amp; Export</string>
     <string name="api_endpoint">API Endpoint</string>
     <string name="api_endpoint_not_configured">Not configured</string>

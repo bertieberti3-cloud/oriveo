@@ -81,6 +81,7 @@ class ChatViewModelSendGuardTest {
         every { appPreferencesRepository.memoryText } returns MutableStateFlow("")
         every { appPreferencesRepository.memoryAntiForgetEnabled } returns MutableStateFlow(false)
         every { appPreferencesRepository.memoryAntiForgetText } returns MutableStateFlow("")
+        every { appPreferencesRepository.chatBackgroundUri } returns MutableStateFlow(null)
         every { chatStreamingManager.streamingText(any()) } returns MutableStateFlow("")
         every { chatStreamingManager.streamingMessageId(any()) } returns MutableStateFlow(null)
         ai.oriveo.community.testing.installChatStreamingManagerForwardingStub(chatStreamingManager, chatRepository)

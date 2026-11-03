@@ -36,6 +36,9 @@ object AppPreferenceKeys {
     /** Switch for automatic memory suggestions: a local preference, on by default. */
     const val MEMORY_AUTO_SUGGEST_ENABLED = "memory_auto_suggest_enabled"
 
+    /** Chat background image URI (persistable content:// or file:// after copy fallback). Device-scoped. */
+    const val CHAT_BACKGROUND_URI = "chat_background_uri"
+
     /**
      * Provider kinds whose content notice the user has acknowledged, as a comma-separated list of
      * raw values. Acknowledgement is per provider because each one sends the user's text to a
@@ -75,6 +78,7 @@ object AppPreferenceKeys {
         NOTE_CAPTURE_HINT_SEEN,
         FEATURE_BADGES_SEEN,
         MEMORY_DEVICE_ID,
+        CHAT_BACKGROUND_URI,
     )
 
     val USER_STATE_KEYS = setOf(

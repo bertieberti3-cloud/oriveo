@@ -329,6 +329,10 @@ class ChatViewModel(
     private val lastUsedModelRef = appPreferencesRepository.lastUsedModelRef
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
+    /** Custom chat background image URI (null = standard aurora). Exposed for ChatScreenContent only. */
+    val chatBackgroundUri: StateFlow<String?> = appPreferencesRepository.chatBackgroundUri
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
     val currentSkill: StateFlow<Skill?> = conversation
         .map { state ->
             val skillId = state.conversation?.skillId ?: return@map null

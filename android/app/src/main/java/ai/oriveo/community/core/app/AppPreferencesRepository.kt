@@ -158,6 +158,9 @@ class AppPreferencesRepository(
             parseLanguagePreference(value) ?: LanguageOption.System
         }
 
+    /** Raw stored URI for custom chat background image (content or file); null = use default aurora. Device local. */
+    val chatBackgroundUri: Flow<String?> = observeDeviceScoped(AppPreferenceKeys.CHAT_BACKGROUND_URI)
+
     val memoryText: Flow<String> = observeUserState(AppPreferenceKeys.MEMORY_TEXT)
         .map { it ?: "" }
 
@@ -274,6 +277,15 @@ class AppPreferencesRepository(
             ?.putString("app_language", option.name)
             ?.apply()
 
+    }
+
+    /** Sets or clears the custom chat background image URI (must be persistable or already copied to private storage). */
+    suspend fun setChatBackgroundUri(uri: String?) {
+        if (uri.isNullOrBlank()) {
+            preferenceDao.delete(AppPreferenceKeys.CHAT_BACKGROUND_URI)
+        } else {
+            preferenceDao.set(PreferenceEntity(AppPreferenceKeys.CHAT_BACKGROUND_URI, uri))
+        }
     }
 
     suspend fun hasAcceptedProviderDisclosure(kind: ProviderKind): Boolean =

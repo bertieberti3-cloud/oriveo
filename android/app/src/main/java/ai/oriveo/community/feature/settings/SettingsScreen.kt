@@ -2,6 +2,8 @@ package ai.oriveo.community.feature.settings
 
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -129,6 +131,7 @@ fun SettingsScreen(
     val theme by viewModel.theme.collectAsStateWithLifecycle()
     val darkPalette by viewModel.darkPalette.collectAsStateWithLifecycle()
     val language by viewModel.language.collectAsStateWithLifecycle()
+    val chatBackgroundUri by viewModel.chatBackgroundUri.collectAsStateWithLifecycle()
     val memoryText by viewModel.memoryText.collectAsStateWithLifecycle()
     val showMemoryFeatureBadge by viewModel.memoryFeatureBadgeVisible.collectAsStateWithLifecycle()
     val contextAISummaryEnabled by viewModel.contextAISummaryEnabled.collectAsStateWithLifecycle()
@@ -138,6 +141,29 @@ fun SettingsScreen(
     val isDark = OriveoTheme.isDark
     val context = LocalContext.current
     val resources = LocalResources.current
+
+    val imagePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+    ) { uri: Uri? ->
+        if (uri != null) {
+            val cr = context.contentResolver
+            var finalUriStr: String? = null
+            var persisted = false
+            try {
+                cr.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                persisted = true
+                finalUriStr = uri.toString()
+            } catch (_: SecurityException) {
+                // Fallback: copy to private storage so it survives app restarts.
+            }
+            if (!persisted) {
+                finalUriStr = copyToPrivateStorage(context, uri)?.toString()
+            }
+            if (finalUriStr != null) {
+                viewModel.setChatBackgroundUri(finalUriStr)
+            }
+        }
+    }
 
     // Re-read the read-aloud engine every time the page returns to the foreground: it may have changed on the voice page.
     LifecycleResumeEffect(viewModel) {
@@ -297,6 +323,36 @@ fun SettingsScreen(
                             language = language,
                             systemLabel = stringResource(R.string.theme_system),
                         ),
+                    )
+                    SettingsListRow(
+                        iconRes = R.drawable.ic_settings_theme,
+                        title = stringResource(R.string.chat_background),
+                        onClick = { imagePicker.launch(ActivityResultContracts.PickVisualMedia.Request.SingleImage) },
+                        showDivider = true,
+                        value = if (chatBackgroundUri.isNullOrBlank()) {
+                            stringResource(R.string.chat_background_standard)
+                        } else {
+                            stringResource(R.string.chat_background_custom)
+                        },
+                        trailingContent = if (!chatBackgroundUri.isNullOrBlank()) {
+                            {
+                                Text(
+                                    text = stringResource(R.string.chat_background_reset),
+                                    style = OriveoTheme.typography.footnote,
+                                    color = colors.primary,
+                                    modifier = Modifier.clickable {
+                                        runCatching {
+                                            val u = Uri.parse(chatBackgroundUri)
+                                            context.contentResolver.releasePersistableUriPermission(
+                                                u,
+                                                Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                                            )
+                                        }
+                                        viewModel.setChatBackgroundUri(null)
+                                    },
+                                )
+                            }
+                        } else null,
                     )
                     SettingsListRow(
                         iconRes = R.drawable.ic_settings_backup,
@@ -554,3 +610,22 @@ internal fun registerAboutLogoTap(currentCount: Int): AboutLogoTapResult {
         AboutLogoTapResult(nextCount = nextCount, shouldRevealEndpoint = false)
     }
 }
+
+/**
+ * Copies the picked image to app-private storage so the background survives restarts and
+ * permission grants. Only called when takePersistableUriPermission fails (rare for photo picker).
+ */
+private fun copyToPrivateStorage(context: android.content.Context, source: Uri): Uri? = runCatching {
+    val cr = context.contentResolver
+    val mime = cr.getType(source) ?: "image/jpeg"
+    val ext = when {
+        mime.contains("png", ignoreCase = true) -> "png"
+        mime.contains("webp", ignoreCase = true) -> "webp"
+        else -> "jpg"
+    }
+    val dest = java.io.File(context.filesDir, "chat_background.$ext")
+    cr.openInputStream(source)?.use { input ->
+        dest.outputStream().use { output -> input.copyTo(output) }
+    }
+    Uri.fromFile(dest)
+}.getOrNull()

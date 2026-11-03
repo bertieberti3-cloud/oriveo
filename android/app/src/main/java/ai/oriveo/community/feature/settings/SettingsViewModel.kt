@@ -35,6 +35,10 @@ class SettingsViewModel(
     val language: StateFlow<LanguageOption> = appPreferencesRepository.language
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), LanguageOption.System)
 
+    /** Chat background custom image URI string (or null for default aurora). */
+    val chatBackgroundUri: StateFlow<String?> = appPreferencesRepository.chatBackgroundUri
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
     val memoryText: StateFlow<String> = appPreferencesRepository.memoryText
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
 
@@ -76,6 +80,12 @@ class SettingsViewModel(
         viewModelScope.launch {
             appPreferencesRepository.setLanguage(option)
             AppLanguageManager.apply(option)
+        }
+    }
+
+    fun setChatBackgroundUri(uri: String?) {
+        viewModelScope.launch {
+            appPreferencesRepository.setChatBackgroundUri(uri)
         }
     }
 }
